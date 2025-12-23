@@ -181,10 +181,14 @@ const Input = {
                 return;
             }
             
+            // Skip canvas touches - they're handled directly on the canvas element for iOS compatibility
+            if (e.target.closest('canvas')) {
+                return;
+            }
+            
             const now = Date.now();
             
-            // Track touches on canvas (for menu interactions)
-            // Don't preventDefault on canvas to allow menu touches to work
+            // Track touches (non-canvas)
             for (let touch of e.changedTouches) {
                 this.touches.set(touch.identifier, {
                     x: touch.clientX,
@@ -193,23 +197,14 @@ const Input = {
                     startY: touch.clientY,
                     startTime: now
                 });
-                
-                // Mark that we have a new touch start for menu confirm
-                if (e.target.closest('canvas')) {
-                    this.lastTouchStartTime = now;
-                    this.touchConfirmTriggered = false; // Reset for new touch
-                }
             }
             
-            // Only preventDefault if not on canvas (to prevent scrolling elsewhere)
-            if (!e.target.closest('canvas')) {
-                e.preventDefault();
-            }
+            e.preventDefault();
         }, { passive: false });
         
         window.addEventListener('touchmove', (e) => {
-            // Don't interfere with touch buttons
-            if (e.target.closest('#touchControls') || e.target.closest('button')) {
+            // Don't interfere with touch buttons or canvas
+            if (e.target.closest('#touchControls') || e.target.closest('button') || e.target.closest('canvas')) {
                 return;
             }
             e.preventDefault();
@@ -223,41 +218,12 @@ const Input = {
         }, { passive: false });
         
         window.addEventListener('touchend', (e) => {
-            // Don't interfere with touch buttons
-            if (e.target.closest('#touchControls') || e.target.closest('button')) {
+            // Don't interfere with touch buttons or canvas (canvas is handled directly)
+            if (e.target.closest('#touchControls') || e.target.closest('button') || e.target.closest('canvas')) {
                 return;
             }
             
-            // Handle canvas touches for menu confirm
-            const isCanvasTouch = e.target.closest('canvas');
-            if (isCanvasTouch) {
-                // For canvas touches, check if this was a tap
-                for (let touch of e.changedTouches) {
-                    const t = this.touches.get(touch.identifier);
-                    if (t) {
-                        // Check if this was a tap (not a swipe)
-                        const dx = touch.clientX - t.startX;
-                        const dy = touch.clientY - t.startY;
-                        const dt = Date.now() - t.startTime;
-                        const distance = Math.sqrt(dx * dx + dy * dy);
-                        
-                        // If it's a short tap (within 50px and 300ms), mark for confirm
-                        if (distance < 50 && dt < 300 && !this.touchButtons.left && !this.touchButtons.right && !this.touchButtons.brake) {
-                            this.pendingCanvasTap = true;
-                        }
-                        
-                        // Check for swipe (but don't use for menu navigation)
-                        if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > this.swipeThreshold && dt < 300) {
-                            this.swipeVelocity = dx / dt;
-                            this.lastSwipeX = touch.clientX;
-                            this.lastSwipeTime = Date.now();
-                        }
-                    }
-                }
-                // Don't preventDefault on canvas to allow natural touch behavior
-            } else {
-                e.preventDefault();
-            }
+            e.preventDefault();
             
             // Clean up touches
             for (let touch of e.changedTouches) {
@@ -266,15 +232,12 @@ const Input = {
         }, { passive: false });
         
         window.addEventListener('touchcancel', (e) => {
-            // Don't interfere with touch buttons
-            if (e.target.closest('#touchControls') || e.target.closest('button')) {
+            // Don't interfere with touch buttons or canvas
+            if (e.target.closest('#touchControls') || e.target.closest('button') || e.target.closest('canvas')) {
                 return;
             }
             
-            // Don't preventDefault on canvas touches
-            if (!e.target.closest('canvas')) {
-                e.preventDefault();
-            }
+            e.preventDefault();
             
             for (let touch of e.changedTouches) {
                 this.touches.delete(touch.identifier);

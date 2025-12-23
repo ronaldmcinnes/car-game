@@ -88,7 +88,7 @@
             window.visualViewport.addEventListener('resize', handleResize);
         }
         
-        // Set up canvas click handler for desktop (touch is handled in utils.js)
+        // Set up canvas click and touch handlers (iOS needs direct canvas handlers)
         setTimeout(() => {
             const canvas = document.getElementById('gameCanvas');
             if (canvas && game) {
@@ -103,6 +103,59 @@
                     // Trigger confirm action via pendingCanvasTap (same mechanism as touch)
                     game.input.pendingCanvasTap = true;
                 });
+                
+                // Direct canvas touch handlers for iOS compatibility
+                let canvasTouchStart = null;
+                canvas.addEventListener('touchstart', (e) => {
+                    if (!game || !game.input) return;
+                    
+                    // Only handle in menu states (not during gameplay)
+                    const menuStates = ['BOOT', 'TITLE', 'HOWTO', 'SETTINGS', 'PAUSED', 'GAMEOVER'];
+                    if (!menuStates.includes(game.state)) return;
+                    
+                    // Prevent default to ensure touchend fires on iOS
+                    e.preventDefault();
+                    
+                    const touch = e.touches[0] || e.changedTouches[0];
+                    if (touch) {
+                        canvasTouchStart = {
+                            x: touch.clientX,
+                            y: touch.clientY,
+                            time: Date.now()
+                        };
+                    }
+                }, { passive: false });
+                
+                canvas.addEventListener('touchend', (e) => {
+                    if (!game || !game.input || !canvasTouchStart) return;
+                    
+                    // Only handle in menu states (not during gameplay)
+                    const menuStates = ['BOOT', 'TITLE', 'HOWTO', 'SETTINGS', 'PAUSED', 'GAMEOVER'];
+                    if (!menuStates.includes(game.state)) return;
+                    
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    const touch = e.changedTouches[0];
+                    if (touch && canvasTouchStart) {
+                        // Check if this was a tap (not a swipe)
+                        const dx = touch.clientX - canvasTouchStart.x;
+                        const dy = touch.clientY - canvasTouchStart.y;
+                        const dt = Date.now() - canvasTouchStart.time;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        
+                        // If it's a short tap (within 50px and 300ms), mark for confirm
+                        if (distance < 50 && dt < 300) {
+                            game.input.pendingCanvasTap = true;
+                        }
+                        
+                        canvasTouchStart = null;
+                    }
+                }, { passive: false });
+                
+                canvas.addEventListener('touchcancel', (e) => {
+                    canvasTouchStart = null;
+                }, { passive: true });
             }
         }, 200);
     </script>
