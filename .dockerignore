@@ -1,0 +1,23 @@
+# Ignore documentation and prompt files
+flipphone-racer-cursor-prompt.md
+README.md
+
+# Ignore git files
+.git
+.gitignore
+
+# Ignore editor files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Ignore OS files
+.DS_Store
+Thumbs.db
+
+# Ignore Docker files themselves
+Dockerfile
+.dockerignore
+

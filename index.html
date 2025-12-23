@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="Flip Phone Racer - A retro-inspired endless car racing game">
+    <title>Flip Phone Racer</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="loading">Loading...</div>
+    
+    <div id="gameContainer">
+        <div id="canvasWrapper">
+            <canvas id="gameCanvas"></canvas>
+        </div>
+    </div>
+    
+    <!-- Touch controls (hidden on desktop) -->
+    <div id="touchControls">
+        <button id="touchLeft" class="touch-button" aria-label="Move Left">◀</button>
+        <button id="touchBrake" class="touch-button" aria-label="Brake">⬇</button>
+        <button id="touchRight" class="touch-button" aria-label="Move Right">▶</button>
+    </div>
+    
+    <!-- Scripts (order matters) -->
+    <script src="utils.js"></script>
+    <script src="storage.js"></script>
+    <script src="audio.js"></script>
+    <script src="game.js"></script>
+    
+    <script>
+        // Hide loading screen when game initializes
+        window.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                const loading = document.getElementById('loading');
+                if (loading) {
+                    loading.classList.add('hidden');
+                }
+            }, 100);
+        });
+        
+        // Prevent context menu on long press (mobile)
+        document.addEventListener('contextmenu', (e) => e.preventDefault());
+        
+        // Prevent default touch behaviors that might interfere
+        document.addEventListener('touchmove', (e) => {
+            if (e.target.closest('#touchControls')) {
+                // Allow touch move in controls area
+                return;
+            }
+            e.preventDefault();
+        }, { passive: false });
+        
+        // Handle orientation change
+        window.addEventListener('orientationchange', () => {
+            setTimeout(() => {
+                if (game && game.resizeCanvas) {
+                    game.resizeCanvas();
+                }
+            }, 100);
+        });
+    </script>
+</body>
+</html>
+
