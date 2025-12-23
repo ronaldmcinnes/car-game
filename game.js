@@ -351,6 +351,7 @@ class Game {
         this.debugMode = false;
         this.lastMenuInput = 0; // For debouncing menu navigation
         this.lastTitleInput = 0; // For debouncing title menu navigation
+        this.stateTransitionTime = Date.now() - 1000; // Timestamp of last state transition (for cooldown) - initialize to allow immediate first interaction
         
         // Timing
         this.lastTime = performance.now();
@@ -501,22 +502,24 @@ class Game {
     }
     
     updateBoot(dt) {
-        // Check for touch confirm on mobile
-        this.input.checkTouchConfirm();
-        
         // Wait for user interaction to start audio - support touch, key, or mouse
-        if (this.input.actionsJustPressed.confirm || this.input.keys.size > 0) {
+        // Ignore confirm if we just transitioned (cooldown period)
+        const now = Date.now();
+        const cooldownElapsed = (now - this.stateTransitionTime) > 300;
+        
+        if (cooldownElapsed && (this.input.actionsJustPressed.confirm || this.input.keys.size > 0)) {
             AudioManager.resume();
             this.setState('TITLE');
         }
     }
     
     updateTitle(dt) {
-        // Check for touch confirm on mobile
-        this.input.checkTouchConfirm();
+        // Ignore input during cooldown period after state transition
+        const now = Date.now();
+        const cooldownElapsed = (now - this.stateTransitionTime) > 300;
         
         // Handle menu navigation using just-pressed for single-trigger
-        if (this.input.actionsJustPressed.confirm) {
+        if (cooldownElapsed && this.input.actionsJustPressed.confirm) {
             AudioManager.playSound('start', this.settings);
             
             if (this.menuSelection === 0) {
@@ -530,25 +533,26 @@ class Game {
         }
         
         // Navigation using just-pressed with debouncing
-        const now = Date.now();
-        if (this.input.actionsJustPressed.up && (now - this.lastTitleInput >= 200)) {
-            AudioManager.playSound('ui', this.settings);
-            this.menuSelection = (this.menuSelection - 1 + 3) % 3;
-            this.lastTitleInput = now;
-        }
-        if (this.input.actionsJustPressed.down && (now - this.lastTitleInput >= 200)) {
-            AudioManager.playSound('ui', this.settings);
-            this.menuSelection = (this.menuSelection + 1) % 3;
-            this.lastTitleInput = now;
+        if (cooldownElapsed) {
+            if (this.input.actionsJustPressed.up && (now - this.lastTitleInput >= 200)) {
+                AudioManager.playSound('ui', this.settings);
+                this.menuSelection = (this.menuSelection - 1 + 3) % 3;
+                this.lastTitleInput = now;
+            }
+            if (this.input.actionsJustPressed.down && (now - this.lastTitleInput >= 200)) {
+                AudioManager.playSound('ui', this.settings);
+                this.menuSelection = (this.menuSelection + 1) % 3;
+                this.lastTitleInput = now;
+            }
         }
     }
     
     updateHowto(dt) {
-        // Check for touch confirm on mobile
-        this.input.checkTouchConfirm();
-        
         // Use just-pressed to prevent immediate re-trigger
-        if (this.input.actionsJustPressed.confirm || this.input.actionsJustPressed.brake) {
+        const now = Date.now();
+        const cooldownElapsed = (now - this.stateTransitionTime) > 300;
+        
+        if (cooldownElapsed && (this.input.actionsJustPressed.confirm || this.input.actionsJustPressed.brake)) {
             AudioManager.playSound('ui', this.settings);
             this.setState('TITLE');
         }
@@ -619,9 +623,6 @@ class Game {
     }
     
     updatePaused(dt) {
-        // Check for touch confirm on mobile
-        this.input.checkTouchConfirm();
-        
         // Use just-pressed for pause toggle
         if (this.input.actionsJustPressed.pause) {
             AudioManager.playSound('ui', this.settings);
@@ -631,19 +632,23 @@ class Game {
         
         // Navigation with debouncing using just-pressed
         const now = Date.now();
-        if (this.input.actionsJustPressed.up && (now - this.lastMenuInput >= 200)) {
-            AudioManager.playSound('ui', this.settings);
-            this.menuSelection = (this.menuSelection - 1 + 3) % 3;
-            this.lastMenuInput = now;
-        }
-        if (this.input.actionsJustPressed.down && (now - this.lastMenuInput >= 200)) {
-            AudioManager.playSound('ui', this.settings);
-            this.menuSelection = (this.menuSelection + 1) % 3;
-            this.lastMenuInput = now;
+        const cooldownElapsed = (now - this.stateTransitionTime) > 300;
+        
+        if (cooldownElapsed) {
+            if (this.input.actionsJustPressed.up && (now - this.lastMenuInput >= 200)) {
+                AudioManager.playSound('ui', this.settings);
+                this.menuSelection = (this.menuSelection - 1 + 3) % 3;
+                this.lastMenuInput = now;
+            }
+            if (this.input.actionsJustPressed.down && (now - this.lastMenuInput >= 200)) {
+                AudioManager.playSound('ui', this.settings);
+                this.menuSelection = (this.menuSelection + 1) % 3;
+                this.lastMenuInput = now;
+            }
         }
         
         // Use just-pressed for confirm
-        if (this.input.actionsJustPressed.confirm) {
+        if (cooldownElapsed && this.input.actionsJustPressed.confirm) {
             if (this.menuSelection === 0) {
                 AudioManager.playSound('start', this.settings);
                 this.setState('PLAYING');
@@ -658,19 +663,20 @@ class Game {
     }
     
     updateGameOver(dt) {
-        // Check for touch confirm on mobile
-        this.input.checkTouchConfirm();
-        
         // Navigation with debouncing using just-pressed
         const now = Date.now();
-        if ((this.input.actionsJustPressed.up || this.input.actionsJustPressed.down) && (now - this.lastMenuInput >= 200)) {
-            AudioManager.playSound('ui', this.settings);
-            this.menuSelection = (this.menuSelection + 1) % 2;
-            this.lastMenuInput = now;
+        const cooldownElapsed = (now - this.stateTransitionTime) > 300;
+        
+        if (cooldownElapsed) {
+            if ((this.input.actionsJustPressed.up || this.input.actionsJustPressed.down) && (now - this.lastMenuInput >= 200)) {
+                AudioManager.playSound('ui', this.settings);
+                this.menuSelection = (this.menuSelection + 1) % 2;
+                this.lastMenuInput = now;
+            }
         }
         
         // Use just-pressed for confirm
-        if (this.input.actionsJustPressed.confirm) {
+        if (cooldownElapsed && this.input.actionsJustPressed.confirm) {
             if (this.menuSelection === 0) {
                 AudioManager.playSound('start', this.settings);
                 this.startGame();
@@ -975,6 +981,7 @@ class Game {
         this.lastMenuInput = 0;
         this.lastTitleInput = 0;
         this.settingsPrevKeys = null; // Reset settings key tracking
+        this.stateTransitionTime = Date.now(); // Record transition time for cooldown
         // Clear input to prevent actions from previous state triggering immediately
         Input.clear();
     }
