@@ -61,14 +61,6 @@
             e.preventDefault();
         }, { passive: false });
         
-        // Also handle touchstart on canvas for immediate response
-        document.addEventListener('touchstart', (e) => {
-            if (e.target.closest('canvas') && game) {
-                // Allow canvas touches to work for menu
-                // Don't preventDefault to allow the game to handle it
-            }
-        }, { passive: true });
-        
         // Handle orientation change and window resize
         let resizeTimeout;
         const handleResize = () => {

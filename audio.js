@@ -10,8 +10,8 @@ const AudioManager = {
     musicStartTime: 0,
     currentMusicNote: 0,
     
-    // Initialize audio context (must be called after user gesture)
-    init() {
+    // Initialize audio context (lazy initialization on first use)
+    _ensureInitialized() {
         if (this.initialized) return;
         
         try {
@@ -38,8 +38,20 @@ const AudioManager = {
         }
     },
     
+    // Initialize audio context (public method for early setup - no-op, actual init happens on resume)
+    init() {
+        // Don't create AudioContext here - wait for user gesture
+        // This prevents the browser warning
+    },
+    
     // Resume audio context if suspended (required by some browsers)
+    // This will also initialize the AudioContext if it hasn't been created yet
     async resume() {
+        // Initialize AudioContext on first resume (after user gesture)
+        if (!this.initialized) {
+            this._ensureInitialized();
+        }
+        
         if (this.audioContext && this.audioContext.state === 'suspended') {
             await this.audioContext.resume();
         }
@@ -55,6 +67,10 @@ const AudioManager = {
     
     // Play a tone (basic synth)
     playTone(frequency, duration, type = 'square', volume = 0.3, startTime = null) {
+        // Ensure AudioContext is initialized
+        if (!this.initialized) {
+            this._ensureInitialized();
+        }
         if (!this.initialized || !this.sfxGain) return;
         
         const now = startTime || this.audioContext.currentTime;
@@ -138,6 +154,10 @@ const AudioManager = {
     
     // Simple looping music (subtle background)
     startMusic() {
+        // Ensure AudioContext is initialized
+        if (!this.initialized) {
+            this._ensureInitialized();
+        }
         if (!this.initialized || this.musicPlaying) return;
         
         this.musicPlaying = true;
