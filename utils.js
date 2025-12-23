@@ -151,6 +151,11 @@ const Input = {
     lastSwipeX: 0,
     lastSwipeTime: 0,
     
+    // Touch confirm tracking (for menu interactions)
+    touchConfirmTriggered: false,
+    lastTouchStartTime: 0,
+    pendingCanvasTap: false, // Flag for canvas tap detected in touchend
+    
     init() {
         // Keyboard events - just update keys set, updateActions() called in game loop
         window.addEventListener('keydown', (e) => {
@@ -169,21 +174,44 @@ const Input = {
             // Don't call updateActions() here - it's called once per frame in game loop
         });
         
-        // Touch events - just update touch state, updateActions() called in game loop
+        // Touch events - track touches for menu interactions and swipe detection
         window.addEventListener('touchstart', (e) => {
-            e.preventDefault();
+            // Don't interfere with touch buttons
+            if (e.target.closest('#touchControls') || e.target.closest('button')) {
+                return;
+            }
+            
+            const now = Date.now();
+            
+            // Track touches on canvas (for menu interactions)
+            // Don't preventDefault on canvas to allow menu touches to work
             for (let touch of e.changedTouches) {
                 this.touches.set(touch.identifier, {
                     x: touch.clientX,
                     y: touch.clientY,
                     startX: touch.clientX,
                     startY: touch.clientY,
-                    startTime: Date.now()
+                    startTime: now
                 });
+                
+                // Mark that we have a new touch start for menu confirm
+                if (e.target.closest('canvas')) {
+                    this.lastTouchStartTime = now;
+                    this.touchConfirmTriggered = false; // Reset for new touch
+                }
             }
-        });
+            
+            // Only preventDefault if not on canvas (to prevent scrolling elsewhere)
+            if (!e.target.closest('canvas')) {
+                e.preventDefault();
+            }
+        }, { passive: false });
         
         window.addEventListener('touchmove', (e) => {
+            // Don't interfere with touch buttons
+            if (e.target.closest('#touchControls') || e.target.closest('button')) {
+                return;
+            }
             e.preventDefault();
             for (let touch of e.changedTouches) {
                 if (this.touches.has(touch.identifier)) {
@@ -192,35 +220,66 @@ const Input = {
                     t.y = touch.clientY;
                 }
             }
-        });
+        }, { passive: false });
         
         window.addEventListener('touchend', (e) => {
-            e.preventDefault();
-            for (let touch of e.changedTouches) {
-                const t = this.touches.get(touch.identifier);
-                if (t) {
-                    // Check for swipe
-                    const dx = touch.clientX - t.startX;
-                    const dy = touch.clientY - t.startY;
-                    const dt = Date.now() - t.startTime;
-                    
-                    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > this.swipeThreshold && dt < 300) {
-                        this.swipeVelocity = dx / dt;
-                        this.lastSwipeX = touch.clientX;
-                        this.lastSwipeTime = Date.now();
-                    }
-                    
-                    this.touches.delete(touch.identifier);
-                }
+            // Don't interfere with touch buttons
+            if (e.target.closest('#touchControls') || e.target.closest('button')) {
+                return;
             }
-        });
-        
-        window.addEventListener('touchcancel', (e) => {
-            e.preventDefault();
+            
+            // Handle canvas touches for menu confirm
+            const isCanvasTouch = e.target.closest('canvas');
+            if (isCanvasTouch) {
+                // For canvas touches, check if this was a tap
+                for (let touch of e.changedTouches) {
+                    const t = this.touches.get(touch.identifier);
+                    if (t) {
+                        // Check if this was a tap (not a swipe)
+                        const dx = touch.clientX - t.startX;
+                        const dy = touch.clientY - t.startY;
+                        const dt = Date.now() - t.startTime;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        
+                        // If it's a short tap (within 50px and 300ms), mark for confirm
+                        if (distance < 50 && dt < 300 && !this.touchButtons.left && !this.touchButtons.right && !this.touchButtons.brake) {
+                            this.pendingCanvasTap = true;
+                        }
+                        
+                        // Check for swipe (but don't use for menu navigation)
+                        if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > this.swipeThreshold && dt < 300) {
+                            this.swipeVelocity = dx / dt;
+                            this.lastSwipeX = touch.clientX;
+                            this.lastSwipeTime = Date.now();
+                        }
+                    }
+                }
+                // Don't preventDefault on canvas to allow natural touch behavior
+            } else {
+                e.preventDefault();
+            }
+            
+            // Clean up touches
             for (let touch of e.changedTouches) {
                 this.touches.delete(touch.identifier);
             }
-        });
+        }, { passive: false });
+        
+        window.addEventListener('touchcancel', (e) => {
+            // Don't interfere with touch buttons
+            if (e.target.closest('#touchControls') || e.target.closest('button')) {
+                return;
+            }
+            
+            // Don't preventDefault on canvas touches
+            if (!e.target.closest('canvas')) {
+                e.preventDefault();
+            }
+            
+            for (let touch of e.changedTouches) {
+                this.touches.delete(touch.identifier);
+            }
+        }, { passive: false });
         
         // Mouse events (for desktop testing) - just update state
         window.addEventListener('mousedown', (e) => {
@@ -254,6 +313,12 @@ const Input = {
         if (this.touchButtons.right) this.actions.right = true;
         if (this.touchButtons.brake) this.actions.brake = true;
         
+        // Check for pending canvas tap (from touchend)
+        if (this.pendingCanvasTap && !this.touchButtons.left && !this.touchButtons.right && !this.touchButtons.brake) {
+            this.actions.confirm = true;
+            this.pendingCanvasTap = false; // Clear the flag after using it
+        }
+        
         // Check swipe (recent swipes)
         if (Date.now() - this.lastSwipeTime < 200) {
             if (this.swipeVelocity > 0.5) {
@@ -269,6 +334,28 @@ const Input = {
                 this.actionsJustPressed[key] = true;
             }
         }
+    },
+    
+    // Check if a touch should trigger confirm action (for menu interactions)
+    // This should be called by the game in menu states
+    checkTouchConfirm() {
+        // Check if we have a recent touch start (within last 200ms) that hasn't been used yet
+        const now = Date.now();
+        const recentTouchStart = (now - this.lastTouchStartTime < 200);
+        const noButtonsPressed = !this.touchButtons.left && 
+                                  !this.touchButtons.right && 
+                                  !this.touchButtons.brake;
+        
+        // Trigger confirm if we have a recent touch start, no buttons pressed, and haven't already triggered
+        if (recentTouchStart && noButtonsPressed && !this.touchConfirmTriggered && !this.actions.confirm) {
+            this.touchConfirmTriggered = true; // Mark as triggered to prevent retriggering
+            this.actions.confirm = true;
+            if (!this.prevActions.confirm) {
+                this.actionsJustPressed.confirm = true;
+            }
+            return true;
+        }
+        return false;
     },
     
     // Set custom keybind
@@ -323,6 +410,8 @@ const Input = {
         this.touchButtons.left = false;
         this.touchButtons.right = false;
         this.touchButtons.brake = false;
+        this.touchConfirmTriggered = false; // Reset touch confirm tracking
+        this.pendingCanvasTap = false; // Clear pending canvas tap
         this.updateActions();
     }
 };

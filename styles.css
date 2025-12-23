@@ -13,10 +13,15 @@ body {
     justify-content: center;
     align-items: center;
     min-height: 100vh;
+    min-height: -webkit-fill-available; /* iOS Safari fix */
     overflow: hidden;
     touch-action: none;
     user-select: none;
     -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent; /* Remove tap highlight on mobile */
+    position: fixed;
+    width: 100%;
+    height: 100%;
 }
 
 /* Flip phone bezel container */
@@ -37,6 +42,9 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+    /* Prevent text selection on mobile */
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 /* Speaker slot (decorative) */
@@ -73,6 +81,9 @@ body {
     image-rendering: -moz-crisp-edges;
     image-rendering: -webkit-optimize-contrast;
     -ms-interpolation-mode: nearest-neighbor;
+    /* Ensure canvas can receive touch events for menu interactions */
+    touch-action: none;
+    pointer-events: auto;
 }
 
 /* Touch controls */
@@ -100,11 +111,15 @@ body {
     font-size: 24px;
     color: rgba(255, 255, 255, 0.9);
     pointer-events: auto;
-    touch-action: manipulation;
+    touch-action: none; /* Changed from manipulation to none for better control */
     user-select: none;
     -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
     transition: all 0.1s;
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+    cursor: pointer;
+    /* Ensure buttons are above everything */
+    z-index: 1001;
 }
 
 .touch-button:active {
@@ -139,14 +154,24 @@ body {
 
 /* Mobile/tablet specific */
 @media (max-width: 768px) {
+    body {
+        /* Prevent bounce/overscroll on iOS */
+        overscroll-behavior: none;
+        -webkit-overflow-scrolling: touch;
+    }
+    
     #gameContainer {
-        padding: 20px 15px;
-        border-radius: 15px;
+        padding: 10px 8px;
+        border-radius: 0;
         width: 100vw;
         height: 100vh;
         max-width: 100vw;
         max-height: 100vh;
-        border-radius: 0;
+        /* Support iOS safe areas */
+        padding-top: env(safe-area-inset-top, 10px);
+        padding-bottom: env(safe-area-inset-bottom, 10px);
+        padding-left: env(safe-area-inset-left, 8px);
+        padding-right: env(safe-area-inset-right, 8px);
     }
     
     #gameContainer::before {
@@ -158,30 +183,50 @@ body {
         border: none;
         width: 100%;
         height: 100%;
+        /* Ensure it fills available space */
+        min-height: 0;
     }
     
     .touch-button {
-        width: 70px;
-        height: 70px;
-        font-size: 20px;
+        width: 80px;
+        height: 80px;
+        font-size: 24px;
+        /* Larger touch target for easier tapping */
+        min-width: 44px;
+        min-height: 44px;
+    }
+    
+    #touchControls {
+        padding: 15px;
+        /* Support iOS safe area at bottom */
+        padding-bottom: calc(15px + env(safe-area-inset-bottom, 0px));
     }
 }
 
 /* Landscape orientation adjustments */
 @media (orientation: landscape) and (max-height: 500px) {
     #gameContainer {
-        padding: 10px;
+        padding: 5px;
+        padding-top: env(safe-area-inset-top, 5px);
+        padding-bottom: env(safe-area-inset-bottom, 5px);
     }
     
     .touch-button {
-        width: 60px;
-        height: 60px;
-        font-size: 18px;
+        width: 70px;
+        height: 70px;
+        font-size: 20px;
+        min-width: 44px;
+        min-height: 44px;
     }
     
     #touchBrake {
-        width: 50px;
-        height: 50px;
+        width: 60px;
+        height: 60px;
+    }
+    
+    #touchControls {
+        padding: 10px;
+        padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
     }
 }
 

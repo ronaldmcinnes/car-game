@@ -390,16 +390,21 @@ class Game {
         const containerRect = container.getBoundingClientRect();
         
         // Use most of the container space, accounting for padding
-        const availableWidth = containerRect.width - 30;
-        const availableHeight = containerRect.height - 30;
+        // On mobile, use smaller padding
+        const isMobile = window.innerWidth <= 768;
+        const padding = isMobile ? 20 : 30;
+        
+        const availableWidth = containerRect.width - padding;
+        const availableHeight = containerRect.height - padding;
         
         const scale = Math.min(
             availableWidth / GAME_CONFIG.CANVAS_WIDTH,
             availableHeight / GAME_CONFIG.CANVAS_HEIGHT
         );
         
-        // Ensure minimum scale of 1.0 (don't shrink below native size)
-        const finalScale = Math.max(scale, 1.0);
+        // On mobile, allow scaling down below 1.0 to fit screen
+        // On desktop, ensure minimum scale of 1.0
+        const finalScale = isMobile ? Math.max(scale, 0.5) : Math.max(scale, 1.0);
         
         canvas.style.width = (GAME_CONFIG.CANVAS_WIDTH * finalScale) + 'px';
         canvas.style.height = (GAME_CONFIG.CANVAS_HEIGHT * finalScale) + 'px';
@@ -496,7 +501,10 @@ class Game {
     }
     
     updateBoot(dt) {
-        // Wait for user interaction to start audio - use just-pressed or any key
+        // Check for touch confirm on mobile
+        this.input.checkTouchConfirm();
+        
+        // Wait for user interaction to start audio - support touch, key, or mouse
         if (this.input.actionsJustPressed.confirm || this.input.keys.size > 0) {
             AudioManager.resume();
             this.setState('TITLE');
@@ -504,6 +512,9 @@ class Game {
     }
     
     updateTitle(dt) {
+        // Check for touch confirm on mobile
+        this.input.checkTouchConfirm();
+        
         // Handle menu navigation using just-pressed for single-trigger
         if (this.input.actionsJustPressed.confirm) {
             AudioManager.playSound('start', this.settings);
@@ -533,6 +544,9 @@ class Game {
     }
     
     updateHowto(dt) {
+        // Check for touch confirm on mobile
+        this.input.checkTouchConfirm();
+        
         // Use just-pressed to prevent immediate re-trigger
         if (this.input.actionsJustPressed.confirm || this.input.actionsJustPressed.brake) {
             AudioManager.playSound('ui', this.settings);
@@ -605,6 +619,9 @@ class Game {
     }
     
     updatePaused(dt) {
+        // Check for touch confirm on mobile
+        this.input.checkTouchConfirm();
+        
         // Use just-pressed for pause toggle
         if (this.input.actionsJustPressed.pause) {
             AudioManager.playSound('ui', this.settings);
@@ -641,6 +658,9 @@ class Game {
     }
     
     updateGameOver(dt) {
+        // Check for touch confirm on mobile
+        this.input.checkTouchConfirm();
+        
         // Navigation with debouncing using just-pressed
         const now = Date.now();
         if ((this.input.actionsJustPressed.up || this.input.actionsJustPressed.down) && (now - this.lastMenuInput >= 200)) {
@@ -1453,42 +1473,79 @@ window.addEventListener('DOMContentLoaded', () => {
     const rightBtn = document.getElementById('touchRight');
     const brakeBtn = document.getElementById('touchBrake');
     
+    // Touch button handlers with proper event handling
+    const handleTouchStart = (e, button) => {
+        e.preventDefault();
+        e.stopPropagation();
+        Input.touchButtons[button] = true;
+        Input.updateActions(); // Update immediately for responsive controls
+    };
+    
+    const handleTouchEnd = (e, button) => {
+        e.preventDefault();
+        e.stopPropagation();
+        Input.touchButtons[button] = false;
+        Input.updateActions(); // Update immediately for responsive controls
+    };
+    
     if (leftBtn) {
-        leftBtn.addEventListener('touchstart', (e) => {
+        leftBtn.addEventListener('touchstart', (e) => handleTouchStart(e, 'left'), { passive: false });
+        leftBtn.addEventListener('touchend', (e) => handleTouchEnd(e, 'left'), { passive: false });
+        leftBtn.addEventListener('touchcancel', (e) => handleTouchEnd(e, 'left'), { passive: false });
+        // Also support mouse events for testing
+        leftBtn.addEventListener('mousedown', (e) => {
             e.preventDefault();
             Input.touchButtons.left = true;
-            // updateActions() called in game loop, not here
+            Input.updateActions();
         });
-        leftBtn.addEventListener('touchend', (e) => {
+        leftBtn.addEventListener('mouseup', (e) => {
             e.preventDefault();
             Input.touchButtons.left = false;
-            // updateActions() called in game loop, not here
+            Input.updateActions();
+        });
+        leftBtn.addEventListener('mouseleave', (e) => {
+            Input.touchButtons.left = false;
+            Input.updateActions();
         });
     }
     
     if (rightBtn) {
-        rightBtn.addEventListener('touchstart', (e) => {
+        rightBtn.addEventListener('touchstart', (e) => handleTouchStart(e, 'right'), { passive: false });
+        rightBtn.addEventListener('touchend', (e) => handleTouchEnd(e, 'right'), { passive: false });
+        rightBtn.addEventListener('touchcancel', (e) => handleTouchEnd(e, 'right'), { passive: false });
+        rightBtn.addEventListener('mousedown', (e) => {
             e.preventDefault();
             Input.touchButtons.right = true;
-            // updateActions() called in game loop, not here
+            Input.updateActions();
         });
-        rightBtn.addEventListener('touchend', (e) => {
+        rightBtn.addEventListener('mouseup', (e) => {
             e.preventDefault();
             Input.touchButtons.right = false;
-            // updateActions() called in game loop, not here
+            Input.updateActions();
+        });
+        rightBtn.addEventListener('mouseleave', (e) => {
+            Input.touchButtons.right = false;
+            Input.updateActions();
         });
     }
     
     if (brakeBtn) {
-        brakeBtn.addEventListener('touchstart', (e) => {
+        brakeBtn.addEventListener('touchstart', (e) => handleTouchStart(e, 'brake'), { passive: false });
+        brakeBtn.addEventListener('touchend', (e) => handleTouchEnd(e, 'brake'), { passive: false });
+        brakeBtn.addEventListener('touchcancel', (e) => handleTouchEnd(e, 'brake'), { passive: false });
+        brakeBtn.addEventListener('mousedown', (e) => {
             e.preventDefault();
             Input.touchButtons.brake = true;
-            // updateActions() called in game loop, not here
+            Input.updateActions();
         });
-        brakeBtn.addEventListener('touchend', (e) => {
+        brakeBtn.addEventListener('mouseup', (e) => {
             e.preventDefault();
             Input.touchButtons.brake = false;
-            // updateActions() called in game loop, not here
+            Input.updateActions();
+        });
+        brakeBtn.addEventListener('mouseleave', (e) => {
+            Input.touchButtons.brake = false;
+            Input.updateActions();
         });
     }
 });
